@@ -3,7 +3,8 @@ from typing import List, Optional
 import sys
 import lexer
 
-TRACE: bool = True
+# Add a flag to control trace output
+TRACE: bool = False  # Set to False to disable trace output
 OUTFILE = None
 
 class SymbolTable:
@@ -118,25 +119,11 @@ def current() -> lexer.Token:
     return tokens[pos]
 
 def advance() -> None:
-    """
-    Consume the current token.  *Must* be called only after ensuring it matches
-    the expected grammar symbol.
-    """
+    """Advance to the next token"""
     global pos
-    
-    # print token / lexeme BEFORE advancing, per spec
-    # Only print if this is not an EOF token
-    if OUTFILE and current().kind != "eof":
-        curr_token = current()
-        OUTFILE.write(f"Token: {curr_token.kind:15s} Lexeme: {curr_token.lexeme:15s} Line: {curr_token.line_number}\n")
-    
-    # AFTER printing the token info, then advance the position
     pos += 1
-    
-    # Return early if we've moved to EOF to prevent multiple EOF prints
-    # Note: This check happens AFTER advancing pos and AFTER printing the token
-    if pos >= len(tokens):
-        return
+    if TRACE and OUTFILE and pos < len(tokens):
+        OUTFILE.write(f"Token: {tokens[pos].kind:<15} Lexeme: {tokens[pos].lexeme:<15} Line: {tokens[pos].line_number}\n")
 
 def expect(kind: str, lexeme: Optional[str] = None) -> None:
     tok = current()
@@ -161,10 +148,10 @@ def error(msg: str) -> None:
     # Don't exit, so parsing can continue
     advance()  # Skip the problematic token to allow parsing to continue
 
-def prod(rule: str) -> None:
+def prod(production: str) -> None:
+    """Print a production if tracing is enabled"""
     if TRACE and OUTFILE:
-        line_num = current().line_number
-        OUTFILE.write(f"\tline {line_num}: {rule}\n")
+        OUTFILE.write(f"\tline {current().line_number}: {production}\n")
 
 # Grammar procedures (after factoring) 
 
@@ -602,8 +589,9 @@ def Primary() -> None:
         error("invalid primary")
 
 # Driver entry point
-def parse(src_text: str, outfile_name: str = "sa_output.txt") -> None:
-    global tokens, pos, OUTFILE, error_count
+def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = False) -> None:
+    global tokens, pos, OUTFILE, error_count, TRACE
+    TRACE = trace  # Set the trace flag
     tokens = lexer.tokenize(src_text)
     pos = 0
     error_count = 0  # Reset error count
@@ -612,14 +600,19 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt") -> None:
     with open(outfile_name, "w") as out_file:
         global OUTFILE
         OUTFILE = out_file
-        OUTFILE.write(f"{'Token':15s} {'Lexeme':15s}\n")
-        OUTFILE.write("-"*35 + "\n")
+        
+        # Only write the token header if tracing is enabled
+        if TRACE:
+            OUTFILE.write(f"{'Token':15s} {'Lexeme':15s}\n")
+            OUTFILE.write("-"*35 + "\n")
+            if pos < len(tokens):
+                OUTFILE.write(f"Token: {tokens[pos].kind:<15} Lexeme: {tokens[pos].lexeme:<15} Line: {tokens[pos].line_number}\n")
         
         # Parse the entire program
         Rat25S()
         
         # Write symbol table to output file
-        OUTFILE.write("\nSymbol Table\n")
+        OUTFILE.write("Symbol Table\n")
         OUTFILE.write("=" * 50 + "\n")
         OUTFILE.write(f"{'Identifier':<15} {'MemoryLocation':<15} {'Type':<10}\n")
         OUTFILE.write("-" * 50 + "\n")
@@ -655,4 +648,5 @@ if __name__ == "__main__":
         print("Usage: python parser.py <source_file>")
         sys.exit(1)
     with open(sys.argv[1]) as f:
-        parse(f.read())
+        # Pass trace=False to disable trace output
+        parse(f.read(), trace=False)
