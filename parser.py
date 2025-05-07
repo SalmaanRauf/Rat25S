@@ -618,10 +618,29 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt") -> None:
         # Parse the entire program
         Rat25S()
         
+        # Write symbol table to output file
+        OUTFILE.write("\nSymbol Table\n")
+        OUTFILE.write("=" * 50 + "\n")
+        OUTFILE.write(f"{'Identifier':<15} {'MemoryLocation':<15} {'Type':<10}\n")
+        OUTFILE.write("-" * 50 + "\n")
+        for lexeme, info in symbol_table.table.items():
+            OUTFILE.write(f"{lexeme:<15} {info['memory_address']:<15} {info['type']:<10}\n")
+        OUTFILE.write("=" * 50 + "\n")
+        
+        # Write assembly code to output file
+        OUTFILE.write("\nAssembly Code Listing\n")
+        OUTFILE.write("=" * 50 + "\n")
+        for instr in assembly.instructions:
+            if instr['oprnd'] is not None:
+                OUTFILE.write(f"{instr['address']:<5} {instr['op']:<10} {instr['oprnd']}\n")
+            else:
+                OUTFILE.write(f"{instr['address']:<5} {instr['op']}\n")
+        OUTFILE.write("=" * 50 + "\n")
+        
         # Make sure OUTFILE is properly closed
         OUTFILE.flush()
     
-    # Print the symbol table and assembly code
+    # Also print to console for convenience
     symbol_table.print_table()
     assembly.print_assembly()
     
