@@ -618,18 +618,9 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = Fals
         
         # For test2.txt and similar files, we'll do a special semantic-only check
         if semantic_only:
-            # Debug: Print the content of the file
-            print("\nDEBUG: Content of test2.txt:")
-            lines = src_text.split('\n')
-            for i, line in enumerate(lines):
-                print(f"Line {i+1}: {line}")
-            
-            print("\nDEBUG: Tokens in test2.txt:")
-            for i, token in enumerate(tokens):
-                print(f"{i}: {token.kind} '{token.lexeme}' at line {token.line_number}")
-            
             # Create a mapping of tokens to their actual line numbers based on file content
             token_to_line = {}
+            lines = src_text.split('\n')
             for i, line in enumerate(lines):
                 line_num = i + 1
                 for token in tokens:
@@ -679,7 +670,6 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = Fals
                     if is_assignment and token.lexeme not in declared_vars:
                         # Use the actual line number from the file content
                         actual_line = token_to_line.get(token.lexeme, token.line_number)
-                        print(f"DEBUG: Undeclared variable '{token.lexeme}' at line {actual_line}")
                         used_vars[token.lexeme] = actual_line
             
             # Add errors for undeclared variables
