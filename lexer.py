@@ -59,9 +59,9 @@ from typing import Tuple, List, Optional
 # ───────────────────────── Token‑set definitions ────────────────────────── #
 
 KEYWORDS = {
-    "integer", "real", "boolean",
+    "integer", "boolean",
     "function", "if", "else", "endif",
-    "while", "endwhile", "return",
+    "while", "endwhile",
     "scan", "print", "true", "false",
 }
 

@@ -393,10 +393,10 @@ def IfPrime() -> None:
         prod("<IfPrime> -> endif")
         
         # Generate a LABEL instruction for the endif point
-        assembly.generate("LABEL")
+        end_lab = assembly.generate("LABEL")
         
         # Backpatch the if-condition jump to jump to here (end of if)
-        assembly.back_patch(assembly.instr_address - 1)  # Point to the LABEL we just created
+        assembly.back_patch(end_lab - 1)  # Point to the LABEL we just created
         
         expect("keyword", "endif")
 
@@ -475,14 +475,8 @@ def While() -> None:
     # Generate jump back to the start of the loop
     assembly.generate("JMP", loop_start)
     
-    # Check if we're processing test4 (which needs a LABEL)
-    # We can detect this by checking if any identifier in the symbol table is named 'done'
-    # which is unique to test4
-    if 'done' in symbol_table.table:
-        # For test4, add a LABEL instruction
-        assembly.generate("LABEL")
-    
     # Backpatch the conditional jump to jump to here (end of loop)
+    # This is the general solution that works for all test cases
     assembly.back_patch(assembly.instr_address)
     
     expect("keyword", "endwhile")
@@ -815,16 +809,7 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = Fals
                 
                 # Only write symbol table and assembly code if no semantic errors
                 if not semantic_errors:
-                    # Write symbol table to output file
-                    OUTFILE.write("Symbol Table\n")
-                    OUTFILE.write("=" * 50 + "\n")
-                    OUTFILE.write(f"{'Identifier':<15} {'MemoryLocation':<15} {'Type':<10}\n")
-                    OUTFILE.write("-" * 50 + "\n")
-                    for lexeme, info in symbol_table.table.items():
-                        OUTFILE.write(f"{lexeme:<15} {info['memory_address']:<15} {info['type']:<10}\n")
-                    OUTFILE.write("=" * 50 + "\n")
-                    
-                    # Write assembly code to output file
+                    # Write assembly code to output file first
                     OUTFILE.write("\nAssembly Code Listing\n")
                     OUTFILE.write("=" * 50 + "\n")
                     for instr in assembly.instructions:
@@ -834,9 +819,18 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = Fals
                             OUTFILE.write(f"{instr['address']:<5} {instr['op']}\n")
                     OUTFILE.write("=" * 50 + "\n")
                     
+                    # Then write symbol table to output file
+                    OUTFILE.write("\nSymbol Table\n")
+                    OUTFILE.write("=" * 50 + "\n")
+                    OUTFILE.write(f"{'Identifier':<15} {'MemoryLocation':<15} {'Type':<10}\n")
+                    OUTFILE.write("-" * 50 + "\n")
+                    for lexeme, info in symbol_table.table.items():
+                        OUTFILE.write(f"{lexeme:<15} {info['memory_address']:<15} {info['type']:<10}\n")
+                    OUTFILE.write("=" * 50 + "\n")
+                    
                     # Also print to console for convenience
-                    symbol_table.print_table()
                     assembly.print_assembly()
+                    symbol_table.print_table()
                 else:
                     # Write only the semantic errors to the output file
                     for error in semantic_errors:
