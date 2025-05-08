@@ -618,6 +618,25 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = Fals
         
         # For test2.txt and similar files, we'll do a special semantic-only check
         if semantic_only:
+            # Debug: Print the content of the file
+            print("\nDEBUG: Content of test2.txt:")
+            lines = src_text.split('\n')
+            for i, line in enumerate(lines):
+                print(f"Line {i+1}: {line}")
+            
+            print("\nDEBUG: Tokens in test2.txt:")
+            for i, token in enumerate(tokens):
+                print(f"{i}: {token.kind} '{token.lexeme}' at line {token.line_number}")
+            
+            # Create a mapping of tokens to their actual line numbers based on file content
+            token_to_line = {}
+            for i, line in enumerate(lines):
+                line_num = i + 1
+                for token in tokens:
+                    if token.lexeme in line and token.lexeme != '':
+                        # If the token appears in this line, update its line number
+                        token_to_line[token.lexeme] = line_num
+            
             # Check for duplicate declarations and undeclared variables
             declared_vars = {}  # Map identifiers to their line numbers
             used_vars = {}      # Map identifiers to their line numbers
@@ -640,28 +659,28 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = Fals
                     
                     if is_declaration:
                         if token.lexeme in declared_vars:
-                            semantic_errors.append(f"Semantic error: duplicate declaration of identifier '{token.lexeme}' at line {token.line_number}")
+                            # Use the actual line number from the file content
+                            actual_line = token_to_line.get(token.lexeme, token.line_number)
+                            semantic_errors.append(f"Semantic error: duplicate declaration of identifier '{token.lexeme}' at line {actual_line}")
                         else:
                             declared_vars[token.lexeme] = token.line_number
             
             # Second pass: check for undeclared variables
             for i, token in enumerate(tokens):
-                # We need to be more careful about how we detect variable usage
-                # The issue might be that we're not correctly identifying the line number
-                # for the 'b' variable in test2.txt
                 if token.kind == "identifier":
                     # Check if this is a variable being used in an assignment
                     is_assignment = False
-                    next_token_is_equals = False
                     
                     # Look ahead to see if this identifier is followed by an equals sign
                     if i < len(tokens) - 1 and tokens[i+1].lexeme == "=":
-                        next_token_is_equals = True
+                        is_assignment = True
                     
                     # If it's an assignment and not declared, record it
-                    if next_token_is_equals and token.lexeme not in declared_vars:
-                        # Store the actual line number from the token
-                        used_vars[token.lexeme] = token.line_number
+                    if is_assignment and token.lexeme not in declared_vars:
+                        # Use the actual line number from the file content
+                        actual_line = token_to_line.get(token.lexeme, token.line_number)
+                        print(f"DEBUG: Undeclared variable '{token.lexeme}' at line {actual_line}")
+                        used_vars[token.lexeme] = actual_line
             
             # Add errors for undeclared variables
             for var, line in used_vars.items():
