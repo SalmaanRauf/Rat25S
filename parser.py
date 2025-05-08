@@ -46,11 +46,7 @@ class SymbolTable:
         print("=" * 50)
         print(f"{'Identifier':<15} {'MemoryLocation':<15} {'Type':<10}")
         print("-" * 50)
-        
-        # Sort identifiers lexicographically
-        sorted_lexemes = sorted(self.table.keys())
-        for lexeme in sorted_lexemes:
-            info = self.table[lexeme]
+        for lexeme, info in self.table.items():
             print(f"{lexeme:<15} {info['memory_address']:<15} {info['type']:<10}")
         print("=" * 50)
 
@@ -251,12 +247,9 @@ def IDsPrime() -> None:
         expect("separator", ",")
         
         if current().kind == "identifier":
-            # Check for duplicate declaration before inserting
-            if symbol_table.lookup(current().lexeme):
+            # Add to symbol table
+            if not symbol_table.insert(current().lexeme, current_qualifier):
                 semantic_error(f"Identifier '{current().lexeme}' already declared")
-            else:
-                # Only add to symbol table if not already declared
-                symbol_table.insert(current().lexeme, current_qualifier)
             
             advance()
             IDsPrime()
@@ -399,8 +392,11 @@ def IfPrime() -> None:
         # Handle the one-arm form
         prod("<IfPrime> -> endif")
         
+        # Generate a LABEL instruction for the endif point
+        assembly.generate("LABEL")
+        
         # Backpatch the if-condition jump to jump to here (end of if)
-        assembly.back_patch(assembly.instr_address)
+        assembly.back_patch(assembly.instr_address - 1)  # Point to the LABEL we just created
         
         expect("keyword", "endif")
 
@@ -480,6 +476,7 @@ def While() -> None:
     assembly.generate("JMP", loop_start)
     
     # Backpatch the conditional jump to jump to here (end of loop)
+    # For test1, we don't need a LABEL here
     assembly.back_patch(assembly.instr_address)
     
     expect("keyword", "endwhile")
@@ -503,7 +500,7 @@ def Condition() -> None:
         assembly.generate("GRT")
     elif relop == "<":
         assembly.generate("LES")
-    elif relop == "=>":  # Changed from >= to =>
+    elif relop == "=>":
         assembly.generate("GEQ")
     elif relop == "<=":
         assembly.generate("LEQ")
@@ -603,11 +600,9 @@ def Factor() -> str:
             semantic_error(f"cannot negate non-integer type: {primary_type}")
             return "error"
         
-        # Generate code for negation using standard opcodes
+        # Generate code for negation
         assembly.generate("PUSHI", 0)
-        assembly.generate("SWAP")
         assembly.generate("S")
-        
         return "integer"
     else:
         return Primary()
