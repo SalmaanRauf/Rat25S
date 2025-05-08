@@ -46,7 +46,11 @@ class SymbolTable:
         print("=" * 50)
         print(f"{'Identifier':<15} {'MemoryLocation':<15} {'Type':<10}")
         print("-" * 50)
-        for lexeme, info in self.table.items():
+        
+        # Sort identifiers lexicographically
+        sorted_lexemes = sorted(self.table.keys())
+        for lexeme in sorted_lexemes:
+            info = self.table[lexeme]
             print(f"{lexeme:<15} {info['memory_address']:<15} {info['type']:<10}")
         print("=" * 50)
 
@@ -247,9 +251,12 @@ def IDsPrime() -> None:
         expect("separator", ",")
         
         if current().kind == "identifier":
-            # Add to symbol table
-            if not symbol_table.insert(current().lexeme, current_qualifier):
+            # Check for duplicate declaration before inserting
+            if symbol_table.lookup(current().lexeme):
                 semantic_error(f"Identifier '{current().lexeme}' already declared")
+            else:
+                # Only add to symbol table if not already declared
+                symbol_table.insert(current().lexeme, current_qualifier)
             
             advance()
             IDsPrime()
@@ -496,7 +503,7 @@ def Condition() -> None:
         assembly.generate("GRT")
     elif relop == "<":
         assembly.generate("LES")
-    elif relop == ">=":
+    elif relop == "=>":  # Changed from >= to =>
         assembly.generate("GEQ")
     elif relop == "<=":
         assembly.generate("LEQ")
@@ -596,8 +603,11 @@ def Factor() -> str:
             semantic_error(f"cannot negate non-integer type: {primary_type}")
             return "error"
         
-        # Generate code for negation
-        assembly.generate("N")
+        # Generate code for negation using standard opcodes
+        assembly.generate("PUSHI", 0)
+        assembly.generate("SWAP")
+        assembly.generate("S")
+        
         return "integer"
     else:
         return Primary()
