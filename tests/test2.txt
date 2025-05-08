@@ -1,0 +1,8 @@
+[* Error conditions test: redeclaration, undeclared id, boolean ↔ integer arithmetic *]
+$$
+integer a, a;
+boolean flag;
+$$
+b = 5;
+flag = flag + 1;
+$$

@@ -1,0 +1,34 @@
+[* Comprehensive long program test for Rat25S – hits every construct & rel‑op *]
+$$
+integer x, y, z, count, limit, tmp;
+boolean done, ok;
+$$
+scan (x, y);
+limit = x + y;
+count = 0;
+done  = false;
+ok    = true;
+while (count <= limit) {
+    if (x > y) {
+        z = x - y;
+    } endif
+    if (x == y) {
+        done = true;
+    } else {
+        ok = false;
+    } endif
+    if (y < x) {
+        ok = true;
+    } endif
+    if (count => limit) {
+        tmp = limit;
+    } endif
+    if (z != 0) {
+        tmp = tmp + 1;
+    } endif
+    print (tmp);
+    count = count + 1;
+    x = x - 1;
+} endwhile
+print (count + z);
+$$
