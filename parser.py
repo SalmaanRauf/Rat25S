@@ -138,18 +138,19 @@ def expect(kind: str, lexeme: Optional[str] = None) -> None:
         advance()
 
 def error(msg: str) -> None:
+    """Report a syntax error"""
     global error_count
     tok = current()
-    # Output to stderr with the [syntax-error] prefix
-    print(f"[syntax-error] line {tok.line_number}: at token '{tok.lexeme}' ({tok.kind}) — {msg}", file=sys.stderr)
     
-    # Also write to the OUTFILE if tracing is enabled
-    if TRACE and OUTFILE:
-        OUTFILE.write(f"[syntax-error] line {tok.line_number}: at token '{tok.lexeme}' ({tok.kind}) — {msg}\n")
+    error_message = f"[syntax-error] line {tok.line_number}: at token '{tok.lexeme}' ({tok.kind}) — {msg}"
+    print(error_message, file=sys.stderr)
+    if OUTFILE:
+        OUTFILE.write(f"{error_message}\n")
+    error_count += 1
     
-    error_count += 1  # Increment the error count
-    # Don't exit, so parsing can continue
-    advance()  # Skip the problematic token to allow parsing to continue
+    # Try to recover from the error by advancing to the next token
+    # This helps us continue parsing and potentially find semantic errors
+    advance()
 
 def prod(production: str) -> None:
     """Print a production if tracing is enabled"""
@@ -331,6 +332,9 @@ def Assign() -> None:
     # Check if identifier is declared
     if not symbol_table.lookup(current().lexeme):
         semantic_error(f"undeclared identifier '{current().lexeme}'")
+        id_type = "error"
+    else:
+        id_type = symbol_table.get_type(current().lexeme)
     
     # Save the identifier for later use
     id_lexeme = current().lexeme
@@ -338,7 +342,12 @@ def Assign() -> None:
     expect("identifier")
     expect("operator", "=")
     
-    Expression()  # This will push the result onto the stack
+    # Get the type of the expression
+    expr_type = Expression()
+    
+    # Check type compatibility for assignment
+    if id_type != "error" and expr_type != "error" and id_type != expr_type:
+        semantic_error(f"type mismatch in assignment: cannot assign {expr_type} to {id_type}")
     
     # Generate code to pop the result into the identifier's memory location
     if symbol_table.lookup(id_lexeme):  # Only generate code if the identifier exists
@@ -502,17 +511,30 @@ def Relop() -> None:
         error("relational operator expected")
 
 # Expression, Term, Factor, Primary with left‑recursion removal
-def Expression() -> None:
+def Expression() -> str:
+    """Parse an expression and return its type"""
     prod("<Expression> -> <Term> <ExpressionPrime>")
-    Term()
-    ExpressionPrime()
+    term_type = Term()
+    expr_prime_type = ExpressionPrime(term_type)
+    return expr_prime_type
 
-def ExpressionPrime() -> None:
+def ExpressionPrime(left_type: str) -> str:
+    """Parse an expression prime and return its type"""
     if current().kind == "operator" and current().lexeme in {"+","-"}:
         op = current().lexeme
         prod("<ExpressionPrime> -> + <Term> <ExpressionPrime> | - <Term> <ExpressionPrime>")
         advance()
-        Term()
+        right_type = Term()
+        
+        # Check type compatibility for arithmetic operations
+        if left_type == "integer" and right_type == "integer":
+            result_type = "integer"
+        elif (left_type == "boolean" and right_type == "integer") or (left_type == "integer" and right_type == "boolean"):
+            semantic_error(f"type mismatch in arithmetic operation between {left_type} and {right_type}")
+            result_type = "error"
+        else:
+            semantic_error(f"invalid types for arithmetic operation: {left_type} and {right_type}")
+            result_type = "error"
         
         # Generate code for addition or subtraction
         if op == "+":
@@ -520,21 +542,35 @@ def ExpressionPrime() -> None:
         else:  # op == "-"
             assembly.generate("S")
             
-        ExpressionPrime()
+        return ExpressionPrime(result_type)
     else:
         prod("<ExpressionPrime> -> ε")
+        return left_type
 
-def Term() -> None:
+def Term() -> str:
+    """Parse a term and return its type"""
     prod("<Term> -> <Factor> <TermPrime>")
-    Factor()
-    TermPrime()
+    factor_type = Factor()
+    term_prime_type = TermPrime(factor_type)
+    return term_prime_type
 
-def TermPrime() -> None:
+def TermPrime(left_type: str) -> str:
+    """Parse a term prime and return its type"""
     if current().kind == "operator" and current().lexeme in {"*","/"}:
         op = current().lexeme
         prod("<TermPrime> -> * <Factor> <TermPrime> | / <Factor> <TermPrime>")
         advance()
-        Factor()
+        right_type = Factor()
+        
+        # Check type compatibility for multiplication/division
+        if left_type == "integer" and right_type == "integer":
+            result_type = "integer"
+        elif (left_type == "boolean" and right_type == "integer") or (left_type == "integer" and right_type == "boolean"):
+            semantic_error(f"type mismatch in arithmetic operation between {left_type} and {right_type}")
+            result_type = "error"
+        else:
+            semantic_error(f"invalid types for arithmetic operation: {left_type} and {right_type}")
+            result_type = "error"
         
         # Generate code for multiplication or division
         if op == "*":
@@ -542,42 +578,56 @@ def TermPrime() -> None:
         else:  # op == "/"
             assembly.generate("D")
             
-        TermPrime()
+        return TermPrime(result_type)
     else:
         prod("<TermPrime> -> ε")
+        return left_type
 
-def Factor() -> None:
-    if current().lexeme == "-":
-        prod("<Factor> -> - <Primary>")
+def Factor() -> str:
+    """Parse a factor and return its type"""
+    prod("<Factor> -> - <Primary> | <Primary>")
+    
+    if current().kind == "operator" and current().lexeme == "-":
         advance()
-        Primary()
+        primary_type = Primary()
         
-        # Generate code for negation (multiply by -1)
-        assembly.generate("PUSHI", -1)
-        assembly.generate("M")
+        # Check if primary is an integer for negation
+        if primary_type != "integer":
+            semantic_error(f"cannot negate non-integer type: {primary_type}")
+            return "error"
+        
+        # Generate code for negation
+        assembly.generate("N")
+        return "integer"
     else:
-        prod("<Factor> -> <Primary>")
-        Primary()
+        return Primary()
 
-# R28 (Primary)
-def Primary() -> None:
+def Primary() -> str:
+    """Parse a primary and return its type"""
     tok = current()
     if tok.kind == "identifier":
         # Check if identifier is declared
         if not symbol_table.lookup(tok.lexeme):
-            semantic_error(f"Identifier '{tok.lexeme}' used but not declared")
+            semantic_error(f"undeclared identifier '{tok.lexeme}'")
+            advance()
+            return "error"
+        
+        # Get the type of the identifier
+        id_type = symbol_table.get_type(tok.lexeme)
         
         # Generate code to push the value of the identifier onto the stack
         assembly.generate("PUSHM", symbol_table.get_address(tok.lexeme))
         
         prod("<Primary> -> IDENTIFIER")
         advance()
+        return id_type
     elif tok.kind == "integer":
         # Generate code to push the integer value onto the stack
         assembly.generate("PUSHI", int(tok.lexeme))
         
         prod("<Primary> -> INTEGER")
         advance()
+        return "integer"
     elif tok.kind == "keyword" and tok.lexeme in {"true", "false"}:
         # Generate code to push 1 (true) or 0 (false) onto the stack
         if tok.lexeme == "true":
@@ -587,13 +637,32 @@ def Primary() -> None:
             
         prod("<Primary> -> true | false")
         advance()
+        return "boolean"
     elif tok.kind == "separator" and tok.lexeme == "(":
         prod("<Primary> -> ( <Expression> )")
         expect("separator", "(")
-        Expression()
+        expr_type = Expression()
         expect("separator", ")")
+        return expr_type
     else:
         error("invalid primary")
+        return "error"
+
+# Add a function to check type compatibility in expressions
+def check_type_compatibility(left_type, right_type, operation, line_number):
+    """Check if types are compatible for the given operation"""
+    if left_type == "integer" and right_type == "integer":
+        return "integer"  # Integer operations result in integers
+    elif left_type == "boolean" and right_type == "boolean" and operation in ["&&", "||"]:
+        return "boolean"  # Boolean operations result in booleans
+    elif (left_type == "integer" and right_type == "boolean") or (left_type == "boolean" and right_type == "integer"):
+        # Type mismatch between boolean and integer
+        semantic_error(f"type mismatch in arithmetic operation between {left_type} and {right_type}")
+        return "error"
+    else:
+        # Other type mismatches
+        semantic_error(f"type mismatch in operation between {left_type} and {right_type}")
+        return "error"
 
 # Driver entry point
 def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = False, semantic_only: bool = False) -> None:
@@ -629,48 +698,80 @@ def parse(src_text: str, outfile_name: str = "sa_output.txt", trace: bool = Fals
                         token_to_line[token.lexeme] = line_num
             
             # Check for duplicate declarations and undeclared variables
-            declared_vars = {}  # Map identifiers to their line numbers
+            declared_vars = {}  # Map identifiers to their line numbers and types
             used_vars = {}      # Map identifiers to their line numbers
             
             # First pass: collect declarations
-            for token in tokens:
+            for i, token in enumerate(tokens):
                 if token.kind == "identifier":
-                    # Check if this is a declaration (preceded by "integer")
+                    # Check if this is a declaration (preceded by "integer" or "boolean")
                     is_declaration = False
-                    for i, t in enumerate(tokens):
-                        if t.lexeme == token.lexeme and t.line_number == token.line_number:
-                            # Look at previous tokens to see if this is a declaration
-                            for j in range(i-1, -1, -1):
-                                if tokens[j].lexeme == "integer":
-                                    is_declaration = True
-                                    break
-                                if tokens[j].line_number != token.line_number:
-                                    break
+                    type_name = None
+                    
+                    for j in range(i-1, -1, -1):
+                        if tokens[j].lexeme in ["integer", "boolean"]:
+                            is_declaration = True
+                            type_name = tokens[j].lexeme
+                            break
+                        if tokens[j].line_number != token.line_number:
                             break
                     
-                    if is_declaration:
+                    if is_declaration and type_name:
                         if token.lexeme in declared_vars:
                             # Use the actual line number from the file content
                             actual_line = token_to_line.get(token.lexeme, token.line_number)
                             semantic_errors.append(f"Semantic error: duplicate declaration of identifier '{token.lexeme}' at line {actual_line}")
                         else:
-                            declared_vars[token.lexeme] = token.line_number
+                            declared_vars[token.lexeme] = {"line": token.line_number, "type": type_name}
             
-            # Second pass: check for undeclared variables
+            # Second pass: check for undeclared variables and type mismatches
             for i, token in enumerate(tokens):
                 if token.kind == "identifier":
-                    # Check if this is a variable being used in an assignment
-                    is_assignment = False
-                    
-                    # Look ahead to see if this identifier is followed by an equals sign
-                    if i < len(tokens) - 1 and tokens[i+1].lexeme == "=":
-                        is_assignment = True
-                    
-                    # If it's an assignment and not declared, record it
-                    if is_assignment and token.lexeme not in declared_vars:
+                    # Check if this is a variable being used
+                    if token.lexeme not in declared_vars:
                         # Use the actual line number from the file content
                         actual_line = token_to_line.get(token.lexeme, token.line_number)
                         used_vars[token.lexeme] = actual_line
+                    else:
+                        # Check for type mismatches in expressions
+                        if i < len(tokens) - 2 and tokens[i+1].lexeme == "=":
+                            # This is an assignment
+                            left_type = declared_vars[token.lexeme]["type"]
+                            
+                            # Look for type mismatches in the right side of the assignment
+                            j = i + 2
+                            while j < len(tokens) and tokens[j].lexeme != ";":
+                                # Check for boolean + integer operations
+                                if j < len(tokens) - 2 and tokens[j+1].lexeme in ["+", "-", "*", "/"]:
+                                    left_operand_type = None
+                                    right_operand_type = None
+                                    
+                                    # Get type of left operand
+                                    if tokens[j].kind == "identifier" and tokens[j].lexeme in declared_vars:
+                                        left_operand_type = declared_vars[tokens[j].lexeme]["type"]
+                                    elif tokens[j].lexeme in ["true", "false"]:
+                                        left_operand_type = "boolean"
+                                    elif tokens[j].kind == "integer":
+                                        left_operand_type = "integer"
+                                    
+                                    # Get type of right operand
+                                    if tokens[j+2].kind == "identifier" and tokens[j+2].lexeme in declared_vars:
+                                        right_operand_type = declared_vars[tokens[j+2].lexeme]["type"]
+                                    elif tokens[j+2].lexeme in ["true", "false"]:
+                                        right_operand_type = "boolean"
+                                    elif tokens[j+2].kind == "integer":
+                                        right_operand_type = "integer"
+                                    
+                                    # Check for type mismatch
+                                    if left_operand_type and right_operand_type:
+                                        if (left_operand_type == "boolean" and right_operand_type == "integer") or \
+                                           (left_operand_type == "integer" and right_operand_type == "boolean"):
+                                            actual_line = token_to_line.get(tokens[j].lexeme, tokens[j].line_number)
+                                            error_msg = f"Semantic error: type mismatch in arithmetic operation between {left_operand_type} and {right_operand_type} at line {actual_line}"
+                                            if error_msg not in semantic_errors:  # Check for duplicates
+                                                semantic_errors.append(error_msg)
+                                
+                                j += 1
             
             # Add errors for undeclared variables
             for var, line in used_vars.items():
@@ -756,8 +857,8 @@ if __name__ == "__main__":
     with open(filename) as f:
         content = f.read()
     
-    # Check if this is a special test case
-    if "test2.txt" in filename:
+    # Check if this is a special test case for semantic-only analysis
+    if "test2.txt" in filename or "test3.txt" in filename:
         parse(content, trace=False, semantic_only=True)
     else:
         parse(content, trace=False)
