@@ -160,23 +160,30 @@ def prod(production: str) -> None:
 # Grammar procedures (after factoring) 
 
 # R1  <Rat25S> ::= $$ <Opt Function Definitions> $$ <Opt Declaration List> $$ <Statement List> $$
+# R1  <Rat25S> ::= $$ [<OptFunctionDefinitions>] [<OptDeclarationList>] $$ <StatementList> $$
 def Rat25S() -> None:
-    # First consume the $$ token - this will print the token
+    # First consume the $$ token
     expect("separator", "$$")
-    
-    # Then print the production rule
-    prod("<Rat25S> -> $$ <OptFunctionDefinitions> $$ <OptDeclarationList> $$ <StatementList> $$")
-    
-    # Continue with the rest of the parsing
-    OptFunctionDefinitions()
-    expect("separator", "$$")
-    OptDeclarationList()
+    # Trace production
+    prod("<Rat25S> -> $$ [<Functions>] [<Declarations>] $$ <StatementList> $$")
+    # Optional empty function definitions section
+    if current().kind == 'separator' and current().lexeme == '$$':
+        prod("<OptFunctionDefinitions> -> ε")
+        advance()
+    else:
+        prod("<OptFunctionDefinitions> -> ε")
+    # Optional declaration list
+    if current().lexeme in {"integer", "boolean"}:
+        prod("<OptDeclarationList> -> <DeclarationList>")
+        DeclarationList()
+    else:
+        prod("<OptDeclarationList> -> ε")
+    # Expect start of statement section
     expect("separator", "$$")
     StatementList()
     expect("separator", "$$")
-    
-    # After consuming the final $$, check for EOF
-    expect("eof")   # must reach end cleanly
+    # Expect end of file
+    expect("eof")  # must reach end cleanly
 
 # R2
 def OptFunctionDefinitions() -> None:
@@ -249,7 +256,7 @@ def IDsPrime() -> None:
         if current().kind == "identifier":
             # Add to symbol table
             if not symbol_table.insert(current().lexeme, current_qualifier):
-                semantic_error(f"Identifier '{current().lexeme}' already declared")
+                semantic_error(f"Duplicate declaration of identifier '{current().lexeme}'")
             
             advance()
             IDsPrime()
@@ -313,6 +320,9 @@ def Statement() -> None:
         elif tok.lexeme == "scan":
             prod("<Statement> -> <Scan>")
             Scan()
+        elif tok.lexeme == "return":
+            error("return statements are invalid in simplified Rat25S (no functions)")
+            advance()  # Skip past 'return' to avoid cascading errors
         else:
             error("unexpected keyword in statement")
     else:
@@ -857,13 +867,8 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python parser.py <source_file>")
         sys.exit(1)
-    
     filename = sys.argv[1]
     with open(filename) as f:
         content = f.read()
-    
-    # Check if this is a special test case for semantic-only analysis
-    if "test2.txt" in filename or "test3.txt" in filename:
-        parse(content, trace=False, semantic_only=True)
-    else:
-        parse(content, trace=False)
+    parse(content, trace=False)
+

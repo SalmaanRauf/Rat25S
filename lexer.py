@@ -61,7 +61,7 @@ from typing import Tuple, List, Optional
 KEYWORDS = {
     "integer", "boolean",
     "function", "if", "else", "endif",
-    "while", "endwhile",
+    "while", "endwhile", "return",
     "scan", "print", "true", "false",
 }
 
@@ -196,11 +196,7 @@ def tokenize(text: str) -> List[Token]:
     i = 0
     current_line = 1
     
-    # Process tokens until we reach EOF
     while i < len(text):
-        # Remember the current line before lexing
-        line_num = current_line
-        
         # Skip whitespace and comments, update position
         skipped_idx, error_token = skip_ws_and_comments(text, i)
         
@@ -209,42 +205,32 @@ def tokenize(text: str) -> List[Token]:
             if text[j] == '\n':
                 current_line += 1
         
-        # Update position after skipping whitespace/comments
         i = skipped_idx
+        line_num = current_line  # Capture line number after skipping
         
-        # If we got an error token from skip_ws_and_comments, use it
         if error_token:
             error_token.line_number = line_num
             tokens.append(error_token)
             continue
             
-        # Check for EOF after skipping
         if i >= len(text):
-            break  # We'll add the EOF token after the loop
-        
-        # Get the next token
+            break
+            
+        # Get next token
         tok, next_i = lex_token(text, i)
         
         # Update line counter for the token content
         for j in range(i, next_i):
-            if j < len(text) and text[j] == '\n':
+            if text[j] == '\n':
                 current_line += 1
         
-        # Set line number and add to tokens
         tok.line_number = line_num
         tokens.append(tok)
-        
-        # Update position
         i = next_i
         
-        # Check for EOF token returned from lex_token
-        if tok.kind == "eof":
-            break
-    
-    # Make sure we have exactly one EOF token at the end
     if not tokens or tokens[-1].kind != "eof":
         tokens.append(Token("eof", "", current_line))
-            
+    
     return tokens
 
 
