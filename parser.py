@@ -13,11 +13,11 @@ class SymbolTable:
         self.memory_address = 10000  # Starting memory address as specified
     
     def lookup(self, lexeme):
-        """Check if identifier exists in the symbol table"""
+        #Check if identifier exists in the symbol table
         return lexeme in self.table
     
     def insert(self, lexeme, type_name):
-        """Insert a new identifier into the symbol table"""
+        #Insert a new identifier into the symbol table
         if self.lookup(lexeme):
             return False  # Already exists
         
@@ -29,19 +29,19 @@ class SymbolTable:
         return True
     
     def get_address(self, lexeme):
-        """Get memory address of an identifier"""
+        #Get memory address of an identifier
         if not self.lookup(lexeme):
             return None
         return self.table[lexeme]['memory_address']
     
     def get_type(self, lexeme):
-        """Get type of an identifier"""
+        #Get type of an identifier
         if not self.lookup(lexeme):
             return None
         return self.table[lexeme]['type']
     
     def print_table(self):
-        """Print the symbol table"""
+        #Print the symbol table
         print("\nSymbol Table")
         print("=" * 50)
         print(f"{'Identifier':<15} {'MemoryLocation':<15} {'Type':<10}")
@@ -57,7 +57,7 @@ class AssemblyGenerator:
         self.jump_stack = []    # Stack for storing jump addresses for backpatching
     
     def generate(self, op, oprnd=None):
-        """Generate an assembly instruction"""
+        #Generate an assembly instruction
         self.instructions.append({
             'address': self.instr_address,
             'op': op,
@@ -67,23 +67,23 @@ class AssemblyGenerator:
         return self.instr_address - 1  # Return the address of the instruction just added
     
     def push_jump_stack(self, address):
-        """Push an address onto the jump stack for later backpatching"""
+        #Push an address onto the jump stack for later backpatching
         self.jump_stack.append(address)
     
     def pop_jump_stack(self):
-        """Pop an address from the jump stack"""
+        #Pop an address from the jump stack
         if not self.jump_stack:
             return None
         return self.jump_stack.pop()
     
     def back_patch(self, jump_address):
-        """Backpatch a jump instruction"""
+        #Backpatch a jump instruction
         addr = self.pop_jump_stack()
         if addr is not None:
             self.instructions[addr-1]['oprnd'] = jump_address
     
     def print_assembly(self):
-        """Print the generated assembly code"""
+        #Print the generated assembly code
         print("\nAssembly Code Listing")
         print("=" * 50)
         for instr in self.instructions:
@@ -122,7 +122,7 @@ def current() -> lexer.Token:
     return tokens[pos]
 
 def advance() -> None:
-    """Advance to the next token"""
+    #Advance to the next token
     global pos
     pos += 1
     if TRACE and OUTFILE and pos < len(tokens):
@@ -138,7 +138,7 @@ def expect(kind: str, lexeme: Optional[str] = None) -> None:
         advance()
 
 def error(msg: str) -> None:
-    """Report a syntax error"""
+    #Report a syntax error
     global error_count
     tok = current()
     
@@ -153,7 +153,7 @@ def error(msg: str) -> None:
     advance()
 
 def prod(production: str) -> None:
-    """Print a production if tracing is enabled"""
+    #Print a production if tracing is enabled
     if TRACE and OUTFILE:
         OUTFILE.write(f"\tline {current().line_number}: {production}\n")
 
@@ -526,14 +526,14 @@ def Relop() -> None:
 
 # Expression, Term, Factor, Primary with left‑recursion removal
 def Expression() -> str:
-    """Parse an expression and return its type"""
+    #Parse an expression and return its type
     prod("<Expression> -> <Term> <ExpressionPrime>")
     term_type = Term()
     expr_prime_type = ExpressionPrime(term_type)
     return expr_prime_type
 
 def ExpressionPrime(left_type: str) -> str:
-    """Parse an expression prime and return its type"""
+    #Parse an expression prime and return its type
     if current().kind == "operator" and current().lexeme in {"+","-"}:
         op = current().lexeme
         prod("<ExpressionPrime> -> + <Term> <ExpressionPrime> | - <Term> <ExpressionPrime>")
@@ -562,14 +562,14 @@ def ExpressionPrime(left_type: str) -> str:
         return left_type
 
 def Term() -> str:
-    """Parse a term and return its type"""
+    #Parse a term and return its type
     prod("<Term> -> <Factor> <TermPrime>")
     factor_type = Factor()
     term_prime_type = TermPrime(factor_type)
     return term_prime_type
 
 def TermPrime(left_type: str) -> str:
-    """Parse a term prime and return its type"""
+    #Parse a term prime and return its type
     if current().kind == "operator" and current().lexeme in {"*","/"}:
         op = current().lexeme
         prod("<TermPrime> -> * <Factor> <TermPrime> | / <Factor> <TermPrime>")
@@ -598,7 +598,7 @@ def TermPrime(left_type: str) -> str:
         return left_type
 
 def Factor() -> str:
-    """Parse a factor and return its type"""
+    #Parse a factor and return its type
     prod("<Factor> -> - <Primary> | <Primary>")
     
     if current().kind == "operator" and current().lexeme == "-":
@@ -618,7 +618,7 @@ def Factor() -> str:
         return Primary()
 
 def Primary() -> str:
-    """Parse a primary and return its type"""
+    #Parse a primary and return its type
     tok = current()
     if tok.kind == "identifier":
         # Check if identifier is declared
@@ -665,7 +665,7 @@ def Primary() -> str:
 
 # Add a function to check type compatibility in expressions
 def check_type_compatibility(left_type, right_type, operation, line_number):
-    """Check if types are compatible for the given operation"""
+    #Check if types are compatible for the given operation
     if left_type == "integer" and right_type == "integer":
         return "integer"  # Integer operations result in integers
     elif left_type == "boolean" and right_type == "boolean" and operation in ["&&", "||"]:
