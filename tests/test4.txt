@@ -1,0 +1,15 @@
+[* Factorial program *]
+$$
+integer n, fact, i;  [* declarations *]
+$$
+fact = 1;
+i    = 1;
+scan(n);
+
+while (i <= n) {
+    fact = fact * i;
+    i    = i + 1;
+} endwhile
+
+print(fact);
+$$
