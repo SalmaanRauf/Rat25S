@@ -3,7 +3,7 @@ from typing import List, Optional
 import sys
 import lexer
 
-# Add a flag to control trace output
+# flag to control trace output
 TRACE: bool = False  # Set to False to disable trace output
 OUTFILE = None
 
