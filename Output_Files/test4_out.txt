@@ -1,0 +1,30 @@
+Identifier  Memory Address  Type
+-----------------------------------
+n           10000           integer
+fact        10001           integer
+i           10002           integer
+
+Address  Operation  Operand
+---------------------------
+1        PUSHI      1
+2        POPM       10001
+3        PUSHI      1
+4        POPM       10002
+5        SIN        nil
+6        POPM       10000
+7        LABEL      nil
+8        PUSHM      10002
+9        PUSHM      10000
+10       LEQ        nil
+11       JUMP0      21
+12       PUSHM      10001
+13       PUSHM      10002
+14       M          nil
+15       POPM       10001
+16       PUSHM      10002
+17       PUSHI      1
+18       A          nil
+19       POPM       10002
+20       JUMP       7
+21       PUSHM      10001
+22       SOUT       nil

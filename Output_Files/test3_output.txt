@@ -1,0 +1,93 @@
+
+Assembly Code Listing
+==================================================
+1     SIN
+2     POPM       10000
+3     SIN
+4     POPM       10001
+5     PUSHM      10000
+6     PUSHM      10001
+7     A
+8     POPM       10004
+9     PUSHI      0
+10    POPM       10003
+11    PUSHI      0
+12    POPM       10006
+13    PUSHI      1
+14    POPM       10007
+15    LABEL
+16    PUSHM      10003
+17    PUSHM      10004
+18    LEQ
+19    JMP0       72
+20    PUSHM      10000
+21    PUSHM      10001
+22    GRT
+23    JMP0       27
+24    PUSHM      10000
+25    PUSHM      10001
+26    S
+27    POPM       10002
+28    LABEL
+29    PUSHM      10000
+30    PUSHM      10001
+31    EQU
+32    JMP0       36
+33    PUSHI      1
+34    POPM       10006
+35    JMP        38
+36    PUSHI      0
+37    POPM       10007
+38    PUSHM      10001
+39    PUSHM      10000
+40    LES
+41    JMP0       43
+42    PUSHI      1
+43    POPM       10007
+44    LABEL
+45    PUSHM      10003
+46    PUSHM      10004
+47    GEQ
+48    JMP0       50
+49    PUSHM      10004
+50    POPM       10005
+51    LABEL
+52    PUSHM      10002
+53    PUSHI      0
+54    NEQ
+55    JMP0       59
+56    PUSHM      10005
+57    PUSHI      1
+58    A
+59    POPM       10005
+60    LABEL
+61    PUSHM      10005
+62    SOUT
+63    PUSHM      10003
+64    PUSHI      1
+65    A
+66    POPM       10003
+67    PUSHM      10000
+68    PUSHI      1
+69    S
+70    POPM       10000
+71    JMP        15
+72    PUSHM      10003
+73    PUSHM      10002
+74    A
+75    SOUT
+==================================================
+
+Symbol Table
+==================================================
+Identifier      MemoryLocation  Type      
+--------------------------------------------------
+x               10000           integer   
+y               10001           integer   
+z               10002           integer   
+count           10003           integer   
+limit           10004           integer   
+tmp             10005           integer   
+done            10006           boolean   
+ok              10007           boolean   
+==================================================

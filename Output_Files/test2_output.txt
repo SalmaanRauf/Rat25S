@@ -1,0 +1,3 @@
+Semantic error: Duplicate declaration of identifier 'a' at line 3
+Semantic error: undeclared identifier 'b' at line 6
+Semantic error: type mismatch in arithmetic operation between boolean and integer at line 7
